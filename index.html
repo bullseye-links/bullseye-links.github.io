@@ -27,6 +27,19 @@
   .lb li b { color: #ffd23f; font-size: 16px; }
   .lb li span:last-child { text-align: right; color: #9ccaa5; }
   .lb li.me { background: rgba(255,210,63,.22); box-shadow: inset 0 0 0 2px #ffd23f; }
+  .global { margin-top: 16px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.06); width: min(340px, 100%); box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
+  .global .small { margin: 0 0 6px; color: #ffd23f; }
+  .gform { display: flex; gap: 8px; align-items: center; justify-content: center; }
+  .gform input { width: 96px; font: inherit; font-size: 22px; font-weight: 800; text-align: center; letter-spacing: 5px; text-transform: uppercase;
+    padding: 9px 6px; border-radius: 12px; border: 2px solid rgba(255,255,255,.35); background: rgba(0,0,0,.3); color: #fff; outline: none; }
+  .gform input:focus { border-color: #ffd23f; }
+  .gform button { margin: 0; padding: 11px 18px; font-size: 17px; }
+  .gform button:disabled { opacity: .5; }
+  .gform.hidden { display: none; }
+  .gmsg { font-size: 14px; color: #bfe6c6; min-height: 1em; }
+  .gmsg.err { color: #ff8a7a; }
+  .gmsg.win { color: #7CFC8A; font-weight: 800; font-size: 16px; }
+  #gList li { grid-template-columns: 36px 1fr 44px 70px; }
   .overlay.soft { background: rgba(8, 28, 14, .7); }
   .hidden { display: none; }
   h1 { font-size: clamp(42px, 13vw, 72px); margin: 8px 0 6px; line-height: .95; letter-spacing: 1px; }
@@ -88,6 +101,15 @@
   <p class="best" id="endBest"></p>
   <p class="vs" id="endVs"></p>
   <div id="card"></div>
+  <div class="global">
+    <p class="small" id="gTitle">Global Top 10</p>
+    <div id="gForm" class="gform">
+      <input id="gInit" maxlength="3" placeholder="AAA" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-label="Your initials">
+      <button id="gSubmit">Post Score</button>
+    </div>
+    <p id="gMsg" class="gmsg"></p>
+    <ol class="lb" id="gList"></ol>
+  </div>
   <p class="small" id="lbTitle" style="margin-top:14px"></p>
   <ol class="lb" id="lb"></ol>
   <div class="modes">
@@ -262,11 +284,58 @@
   function show(id) { ['start', 'holeDone', 'end'].forEach(o => $(o).classList.toggle('hidden', o !== id)); }
   function blur() { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
 
+  // ---------- global leaderboard (Cloudflare Worker + D1) ----------
+  const API = 'https://bullseye-links-api.cleary0720.workers.dev';
+  let roundId = null, roundSeq = 0;
+  function requestRoundTicket() {
+    const seq = ++roundSeq; roundId = null;
+    fetch(API + '/api/round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.roundId && seq === roundSeq) roundId = d.roundId; })
+      .catch(() => {});
+  }
+  const clean3 = s => String(s || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+  function renderGlobal(top, highlightId) {
+    $('gList').innerHTML = top.length ? top.map((r, i) =>
+      `<li class="${r.id === highlightId ? 'me' : ''}"><span>#${i + 1}</span><b>${clean3(r.initials)}</b><b>${fmtRel(Number(r.rel))}</b><span>${Number(r.strokes)} strokes</span></li>`
+    ).join('') : '<li><span></span><span>No scores yet. Be the first!</span></li>';
+  }
+  function setGMsg(text, cls) { $('gMsg').textContent = text; $('gMsg').className = 'gmsg ' + (cls || ''); }
+  function showGlobal() {
+    $('gTitle').textContent = `Global Top 10 · ${mode} Holes`;
+    $('gList').innerHTML = '';
+    let saved = ''; try { saved = localStorage.getItem('bullseyeLinks.initials') || ''; } catch (e) {}
+    $('gInit').value = clean3(saved);
+    $('gSubmit').disabled = false;
+    $('gForm').classList.toggle('hidden', !roundId);
+    setGMsg(roundId ? 'Enter your initials to post this round' : 'Leaderboard offline for this round', roundId ? '' : 'err');
+    fetch(`${API}/api/scores?mode=${mode}`).then(r => r.json()).then(d => renderGlobal(d.top || [])).catch(() => setGMsg('Could not load the leaderboard', 'err'));
+  }
+  function submitGlobal() {
+    const initials = clean3($('gInit').value);
+    if (initials.length !== 3) { setGMsg('Initials must be 3 letters', 'err'); return; }
+    if (!roundId) return;
+    try { localStorage.setItem('bullseyeLinks.initials', initials); } catch (e) {}
+    $('gSubmit').disabled = true; setGMsg('Posting...');
+    fetch(API + '/api/scores', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roundId, initials, holes: scores }) })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) { setGMsg(d.error || 'Could not post score', 'err'); $('gSubmit').disabled = false; return; }
+        roundId = null;
+        $('gForm').classList.add('hidden');
+        setGMsg(d.rank <= 10 ? `You're #${d.rank} in the world!` : `Posted! You're #${d.rank} worldwide.`, 'win');
+        renderGlobal(d.top || [], d.id);
+      })
+      .catch(() => { setGMsg('Network error, try again', 'err'); $('gSubmit').disabled = false; });
+  }
+
   function startRound(m) {
     blur();
     if (m === 9 || m === 18) mode = m;
     HOLES = ALL_HOLES.slice(0, mode);
     scores = []; loadHole(0);
+    requestRoundTicket();
   }
   function toMenu() { blur(); state = 'start'; updateStartBest(); show('start'); }
   function updateStartBest() {
@@ -413,6 +482,7 @@
     }).join('');
     $('againBtn').textContent = `Play ${mode} Again`;
     state = 'end'; show('end');
+    showGlobal();
   }
 
   // ---------- effects ----------
@@ -651,6 +721,10 @@
   document.addEventListener('touchmove', e => { if (!e.target.closest('.overlay')) e.preventDefault(); }, { passive: false });
 
   addEventListener('keydown', e => {
+    if (e.target && e.target.tagName === 'INPUT') {   // typing initials: don't treat keys as game controls
+      if (e.key === 'Enter') { e.preventDefault(); submitGlobal(); }
+      return;
+    }
     if ([' ', 'Spacebar', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
     if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
       if (e.repeat) return;
@@ -671,6 +745,8 @@
   $('nextBtn').onclick = nextHole;
   $('againBtn').onclick = () => startRound(mode);
   $('menuBtn').onclick = toMenu;
+  $('gSubmit').onclick = submitGlobal;
+  $('gInit').addEventListener('input', () => { const v = clean3($('gInit').value); if ($('gInit').value !== v) $('gInit').value = v; });
   updateStartBest();
 
   addEventListener('resize', resize);

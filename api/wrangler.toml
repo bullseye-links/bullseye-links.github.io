@@ -1,0 +1,9 @@
+name = "bullseye-links-api"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bullseye-links"
+database_id = "63486c29-66d5-4828-bed4-00ae91dfc189"
