@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f2e18">
+<title>Bullseye Links</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #0f2e18;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; }
+  canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    text-align: center; padding: 24px 16px; box-sizing: border-box; z-index: 5; background: rgba(8, 28, 14, .86);
+    overflow-y: auto; touch-action: pan-y; }
+  .overlay > :first-child { margin-top: auto; }
+  .overlay > :last-child { margin-bottom: auto; }
+  .modes { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .modes button { padding: 12px 26px; }
+  .modes button small { display: block; font-size: 12px; font-weight: 700; opacity: .7; margin-top: 2px; }
+  button.ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.5); }
+  .vs { color: #e6f5e8; font-weight: 700; }
+  .vs.good { color: #7CFC8A; }
+  .lb { list-style: none; padding: 0; margin: 6px 0 0; width: min(320px, 100%); }
+  .lb li { display: grid; grid-template-columns: 36px 44px 1fr 48px; align-items: center; padding: 7px 10px; margin: 4px 0;
+    border-radius: 10px; background: rgba(255,255,255,.07); font-size: 14px; text-align: left; }
+  .lb li b { color: #ffd23f; font-size: 16px; }
+  .lb li span:last-child { text-align: right; color: #9ccaa5; }
+  .lb li.me { background: rgba(255,210,63,.22); box-shadow: inset 0 0 0 2px #ffd23f; }
+  .overlay.soft { background: rgba(8, 28, 14, .7); }
+  .hidden { display: none; }
+  h1 { font-size: clamp(42px, 13vw, 72px); margin: 8px 0 6px; line-height: .95; letter-spacing: 1px; }
+  h1 span { color: #ffd23f; }
+  h2 { font-size: clamp(36px, 11vw, 60px); margin: 4px 0; color: #ffd23f; }
+  p { margin: 6px 0; }
+  .tag { color: #bfe6c6; font-size: 17px; }
+  .small { color: #9ccaa5; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+  .how { list-style: none; padding: 0; margin: 18px 0 4px; font-size: 15px; color: #e6f5e8; line-height: 1.8; }
+  .how b { color: #ffd23f; }
+  .logo { width: 92px; height: 92px; border-radius: 50%;
+    background: radial-gradient(circle, #ffd23f 0 15%, #fff 15% 35%, #e74c3c 35% 60%, #fff 60% 80%, #e74c3c 80% 100%);
+    box-shadow: 0 6px 0 rgba(0,0,0,.3); position: relative; }
+  .logo::after { content: ""; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    border: 2px solid #1b3a22; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  button { font: inherit; font-weight: 800; font-size: 22px; padding: 14px 44px; border: 0; border-radius: 999px;
+    background: #ffd23f; color: #1b3a22; box-shadow: 0 5px 0 #b8901a; cursor: pointer; margin-top: 20px; }
+  button:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8901a; }
+  .best { color: #ffd23f; font-weight: 700; margin-top: 14px; }
+  table { border-collapse: collapse; margin: 10px auto 0; font-size: 12px; }
+  td { width: 24px; height: 24px; text-align: center; border: 1px solid rgba(255,255,255,.15); }
+  td.lbl { width: auto; padding: 0 6px; color: #9ccaa5; font-weight: 700; text-align: left; }
+  td.under { color: #1b3a22; background: #ffd23f; font-weight: 800; }
+  td.over { color: #ffb3a8; }
+  .big { font-size: 22px; font-weight: 800; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="start" class="overlay">
+  <div class="logo"></div>
+  <h1>Bullseye<br><span>Links</span></h1>
+  <p class="tag">9 holes. One target. Hit the center.</p>
+  <ul class="how">
+    <li><b>Aim:</b> tap the course &nbsp;(or ← → ↑ ↓)</li>
+    <li><b>Swing:</b> tap the target &nbsp;(or SPACE)</li>
+    <li>Closer to the <b>gold center</b> = straighter shot</li>
+  </ul>
+  <div class="modes">
+    <button id="play9">9 Holes<small>Front nine · Par 36</small></button>
+    <button id="play18">18 Holes<small>Full course · Par 71</small></button>
+  </div>
+  <p class="best" id="startBest"></p>
+</div>
+
+<div id="holeDone" class="overlay soft hidden">
+  <p class="small" id="hdHole"></p>
+  <h2 id="hdWord"></h2>
+  <p class="big" id="hdLine"></p>
+  <p class="tag" id="hdTotal"></p>
+  <button id="nextBtn">Next Hole</button>
+</div>
+
+<div id="end" class="overlay hidden">
+  <p class="small" id="endTitle">Round Complete</p>
+  <h2 id="endRel"></h2>
+  <p class="big" id="endStrokes"></p>
+  <p class="best" id="endBest"></p>
+  <p class="vs" id="endVs"></p>
+  <div id="card"></div>
+  <p class="small" id="lbTitle" style="margin-top:14px"></p>
+  <ol class="lb" id="lb"></ol>
+  <div class="modes">
+    <button id="againBtn">Play Again</button>
+    <button id="menuBtn" class="ghost">Menu</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const WORLD_W = 360, CUP_R = 7, YD = 0.6, KEY = 'bullseyeLinks.best';
+  const MAX = { tee: 380, fairway: 340, rough: 240, sand: 150, green: 600 };
+  const LIE_NAME = { tee: 'Tee', fairway: 'Fairway', rough: 'Rough', sand: 'Bunker', green: 'Green' };
+
+  // Each hole: tee at the bottom, green at the top. Units are "world" units.
+  const ALL_HOLES = [
+    { name: 'Warm Up', par: 3, h: 480, tee: [180, 440], pin: [190, 88], green: [180, 92, 46],
+      fw: { w: 60, lines: [[[180, 420], [180, 150]]] }, sand: [[118, 118, 22], [248, 104, 20]], water: [], wp: [] },
+    { name: 'Lake View', par: 4, h: 720, tee: [180, 680], pin: [225, 82], green: [220, 90, 48],
+      fw: { w: 90, lines: [[[180, 650], [180, 420], [230, 250], [220, 130]]] }, sand: [[300, 300, 25], [150, 108, 20]],
+      water: [[95, 380, 50, 70]], wp: [[190, 380]] },
+    { name: 'The Long Way', par: 5, h: 1000, tee: [180, 960], pin: [195, 100], green: [200, 108, 50],
+      fw: { w: 90, lines: [[[180, 930], [120, 700], [240, 450], [205, 160]]] },
+      sand: [[160, 500, 20], [262, 142, 22], [140, 118, 18]], water: [[285, 700, 55, 90], [105, 420, 50, 60]],
+      wp: [[130, 680], [235, 420]] },
+    { name: 'Over the Pond', par: 3, h: 500, tee: [180, 460], pin: [172, 98], green: [180, 102, 44],
+      fw: { w: 70, lines: [[[180, 450], [180, 372]], [[180, 170], [180, 150]]] }, sand: [[242, 142, 18], [118, 72, 16]],
+      water: [[180, 262, 150, 78]], wp: [] },
+    { name: 'Dogleg Left', par: 4, h: 760, tee: [280, 720], pin: [95, 100], green: [92, 110, 45],
+      fw: { w: 85, lines: [[[280, 690], [270, 400], [150, 300], [100, 160]]] }, sand: [[330, 330, 25], [150, 88, 18]],
+      water: [[150, 520, 45, 70]], wp: [[250, 380]] },
+    { name: 'Snake River', par: 5, h: 1040, tee: [90, 1000], pin: [165, 110], green: [162, 120, 50],
+      fw: { w: 95, lines: [[[90, 970], [100, 720], [270, 560], [280, 330], [165, 170]]] },
+      sand: [[332, 590, 22], [226, 150, 20], [106, 142, 18]], water: [[255, 820, 70, 55], [110, 420, 60, 50]],
+      wp: [[105, 700], [272, 420]] },
+    { name: 'The Gauntlet', par: 4, h: 700, tee: [180, 660], pin: [185, 105], green: [180, 112, 42],
+      fw: { w: 70, lines: [[[180, 630], [180, 170]]] }, sand: [[240, 92, 18], [120, 132, 16]],
+      water: [[62, 400, 45, 120], [298, 350, 45, 110]], wp: [[180, 370]] },
+    { name: 'Tiny Target', par: 3, h: 420, tee: [180, 380], pin: [205, 105], green: [200, 110, 34],
+      fw: { w: 55, lines: [[[180, 365], [192, 200]]] }, sand: [[150, 90, 18], [250, 95, 18], [200, 165, 20]],
+      water: [], wp: [] },
+    { name: 'Grand Finale', par: 5, h: 1060, tee: [180, 1020], pin: [285, 110], green: [282, 118, 48],
+      fw: { w: 90, lines: [[[180, 990], [175, 745], [110, 580], [210, 420], [268, 200]]] },
+      sand: [[60, 470, 18], [330, 205, 16]], water: [[300, 640, 50, 90], [170, 160, 50, 40]],
+      wp: [[175, 745], [210, 420]] },
+    // ----- back nine -----
+    { name: 'Split Fairway', par: 4, h: 740, tee: [180, 700], pin: [175, 100], green: [180, 110, 46],
+      fw: { w: 80, lines: [[[180, 680], [180, 520], [110, 400], [170, 180]], [[180, 520], [255, 400], [190, 180]]] },
+      sand: [[260, 140, 20], [95, 90, 18]], water: [[180, 420, 40, 60]], wp: [[110, 400]] },
+    { name: 'Postage Stamp', par: 3, h: 440, tee: [180, 400], pin: [160, 128], green: [160, 130, 30],
+      fw: { w: 55, lines: [[[180, 385], [170, 230]]] }, sand: [[120, 150, 16], [200, 150, 16], [160, 92, 15]],
+      water: [[260, 260, 50, 40]], wp: [] },
+    { name: 'Big Bend', par: 5, h: 1050, tee: [290, 1010], pin: [200, 130], green: [195, 140, 48],
+      fw: { w: 90, lines: [[[290, 980], [270, 700], [120, 450], [190, 160]]] },
+      sand: [[90, 300, 18], [250, 150, 18], [150, 110, 16]], water: [[300, 470, 45, 80], [60, 780, 40, 70]],
+      wp: [[270, 700], [125, 440]] },
+    { name: 'Island Green', par: 3, h: 520, tee: [180, 480], pin: [185, 175], green: [180, 180, 40],
+      fw: { w: 70, lines: [[[180, 470], [180, 350]]] }, sand: [], water: [[180, 200, 165, 120]], wp: [] },
+    { name: 'Narrow Neck', par: 4, h: 720, tee: [180, 680], pin: [205, 95], green: [200, 105, 45],
+      fw: { w: 90, lines: [[[180, 650], [180, 390], [200, 150]]] }, sand: [[120, 250, 20], [260, 130, 18]],
+      water: [[40, 400, 70, 40], [320, 400, 70, 40]], wp: [[180, 390]] },
+    { name: 'Short & Sweet', par: 3, h: 400, tee: [180, 360], pin: [190, 100], green: [180, 110, 48],
+      fw: { w: 70, lines: [[[180, 345], [180, 170]]] }, sand: [[110, 160, 20], [250, 160, 20]], water: [], wp: [] },
+    { name: 'Marathon', par: 5, h: 1000, tee: [70, 960], pin: [150, 120], green: [150, 128, 48],
+      fw: { w: 90, lines: [[[70, 930], [90, 670], [270, 430], [150, 160]]] },
+      sand: [[330, 450, 18], [210, 170, 18], [95, 110, 16]], water: [[230, 780, 60, 70], [70, 330, 45, 70]],
+      wp: [[90, 670], [270, 430]] },
+    { name: 'Corner Pocket', par: 4, h: 740, tee: [80, 700], pin: [285, 105], green: [280, 115, 45],
+      fw: { w: 85, lines: [[[80, 670], [90, 400], [220, 300], [280, 160]]] }, sand: [[40, 260, 18], [220, 90, 16]],
+      water: [[230, 480, 55, 70]], wp: [[110, 380]] },
+    { name: 'Home Hole', par: 4, h: 780, tee: [180, 740], pin: [150, 110], green: [150, 120, 46],
+      fw: { w: 90, lines: [[[180, 710], [180, 420], [150, 180]]] }, sand: [[220, 100, 20], [80, 140, 18]],
+      water: [[150, 240, 90, 28]], wp: [[180, 420]] },
+  ];
+  let mode = 9, HOLES = ALL_HOLES.slice(0, 9);
+
+  let W, H, L = {};
+  let state = 'start', holeIdx = 0, hole = HOLES[0], ball = { x: 180, y: 440, h: 0 }, prev = null, lie = 'tee';
+  let strokes = 0, scores = [], aimAng = -Math.PI / 2, aimDist = 100, meterT = 0, frozen = null, flight = null;
+  let settle = 0, holedT = 0, camY = 0, popups = [], parts = [], time = 0, last = performance.now();
+  // Saved rounds on this device: { 9: [{rel, strokes, date}], 18: [...] } in the order they were played
+  const RKEY = 'bullseyeLinks.rounds';
+  let rounds = { 9: [], 18: [] };
+  try {
+    const v = JSON.parse(localStorage.getItem(RKEY) || 'null');
+    if (v && typeof v === 'object') { rounds[9] = Array.isArray(v[9]) ? v[9] : []; rounds[18] = Array.isArray(v[18]) ? v[18] : []; }
+    const old = localStorage.getItem(KEY);   // carry over the best score from the 9-hole-only version
+    if (!rounds[9].length && old !== null && old !== '' && !isNaN(+old)) rounds[9].push({ rel: +old, strokes: +old + 36, date: Date.now() });
+  } catch (e) {}
+  const saveRounds = () => { try { localStorage.setItem(RKEY, JSON.stringify(rounds)); } catch (e) {} };
+  const ranked = m => [...rounds[m]].sort((a, b) => a.rel - b.rel || a.date - b.date);
+  const bestFor = m => rounds[m].length ? ranked(m)[0].rel : null;
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+  const fmtRel = n => n === 0 ? 'E' : (n > 0 ? '+' + n : '' + n);
+  function segDist(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy;
+    const t = l ? clamp(((px - ax) * dx + (py - ay) * dy) / l, 0, 1) : 0;
+    return dist(px, py, ax + dx * t, ay + dy * t);
+  }
+
+  // ---------- layout ----------
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    L.hud = 52;
+    L.panelH = clamp(H * 0.3, 170, 240);
+    L.panelY = H - L.panelH;
+    L.courseTop = L.hud;
+    L.courseH = L.panelY - L.hud;
+    L.s = Math.min((W - 16) / WORLD_W, L.courseH / 440);
+    L.ox = (W - WORLD_W * L.s) / 2;
+    L.cy = L.courseTop + L.courseH / 2;
+    L.R = Math.min(L.panelH * 0.36, W * 0.22, 95);
+    L.mx = W / 2; L.my = L.panelY + L.panelH * 0.55;
+    camY = camGoal();
+  }
+  const sx = x => L.ox + x * L.s;
+  const sy = y => L.cy + (y - camY) * L.s;
+
+  function camGoal() {
+    const half = L.courseH / 2 / L.s;
+    if (hole.h <= half * 2) return hole.h / 2;
+    let y;
+    if (flight) y = ball.y;
+    else y = (ball.y + ball.y + Math.sin(aimAng) * aimDist) / 2;
+    return clamp(y, half, hole.h - half);
+  }
+
+  // ---------- course logic ----------
+  function lieAt(x, y) {
+    if (x < 4 || x > WORLD_W - 4 || y < 4 || y > hole.h - 4) return 'oob';
+    const g = hole.green;
+    if (dist(x, y, g[0], g[1]) < g[2]) return 'green';   // checked before water so island greens work
+    for (const w of hole.water) if (((x - w[0]) / w[2]) ** 2 + ((y - w[1]) / w[3]) ** 2 < 1) return 'water';
+    for (const s of hole.sand) if (dist(x, y, s[0], s[1]) < s[2]) return 'sand';
+    for (const ln of hole.fw.lines)
+      for (let i = 0; i < ln.length - 1; i++)
+        if (segDist(x, y, ln[i][0], ln[i][1], ln[i + 1][0], ln[i + 1][1]) < hole.fw.w / 2) return 'fairway';
+    return 'rough';
+  }
+
+  function defaultAim() {
+    const [px, py] = hole.pin, pd = dist(ball.x, ball.y, px, py), max = MAX[lie];
+    let tx = px, ty = py, d;
+    if (lie === 'green') d = pd + 8;          // putts: roll it just past the cup
+    else {
+      if (pd > max) {
+        const cands = hole.wp.filter(w => dist(w[0], w[1], px, py) < pd - 50 && dist(ball.x, ball.y, w[0], w[1]) > 40);
+        const reach = cands.filter(w => dist(ball.x, ball.y, w[0], w[1]) <= max);
+        const pick = reach.length ? reach[reach.length - 1] : cands[0];
+        if (pick) { tx = pick[0]; ty = pick[1]; }
+      }
+      d = dist(ball.x, ball.y, tx, ty);
+    }
+    aimAng = Math.atan2(ty - ball.y, tx - ball.x);
+    aimDist = clamp(d, 10, max);
+  }
+
+  function meterPos() {
+    const sp = (1 + holeIdx * 0.07) * (lie === 'green' ? 0.85 : 1);
+    const a = Math.sin(meterT * 3.1 * sp), th = meterT * 0.55;
+    return { x: a * Math.cos(th), y: a * Math.sin(th) };
+  }
+
+  // ---------- game flow ----------
+  function show(id) { ['start', 'holeDone', 'end'].forEach(o => $(o).classList.toggle('hidden', o !== id)); }
+  function blur() { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+
+  function startRound(m) {
+    blur();
+    if (m === 9 || m === 18) mode = m;
+    HOLES = ALL_HOLES.slice(0, mode);
+    scores = []; loadHole(0);
+  }
+  function toMenu() { blur(); state = 'start'; updateStartBest(); show('start'); }
+  function updateStartBest() {
+    const b9 = bestFor(9), b18 = bestFor(18);
+    $('startBest').textContent = (b9 === null && b18 === null) ? '' :
+      `Best 9: ${b9 === null ? '—' : fmtRel(b9)}   ·   Best 18: ${b18 === null ? '—' : fmtRel(b18)}`;
+  }
+  function loadHole(i) {
+    holeIdx = i; hole = HOLES[i];
+    ball = { x: hole.tee[0], y: hole.tee[1], h: 0 };
+    lie = 'tee'; strokes = 0; flight = null; frozen = null; parts = [];
+    defaultAim(); camY = camGoal();
+    meterT = Math.random() * 10;
+    state = 'aim'; show(null);
+    popup(`Hole ${i + 1} · Par ${hole.par}`, '#fff');
+  }
+  function nextHole() {
+    blur();
+    if (holeIdx + 1 < HOLES.length) loadHole(holeIdx + 1); else showEnd();
+  }
+
+  function swing() {
+    if (state !== 'aim') return;
+    const m = meterPos(), r = Math.min(1, Math.hypot(m.x, m.y)), putt = lie === 'green';
+    let q;
+    if (r < 0.15) q = ['PERFECT!', '#ffd23f'];
+    else if (r < 0.35) q = ['GREAT', '#7CFC8A'];
+    else if (r < 0.6) q = ['GOOD', '#ffffff'];
+    else if (r < 0.85) q = ['MEH', '#ffb347'];
+    else q = [putt ? 'YIKES' : 'SHANK!', '#ff5b5b'];
+    const sgn = () => Math.random() < 0.5 ? -1 : 1;
+    let ang = sgn() * Math.pow(r, 1.3) * (putt ? 12 : 22) * Math.PI / 180;
+    let df = 1 + sgn() * r * (putt ? 0.4 : 0.28);
+    if (r >= 0.85 && !putt) { ang = sgn() * (25 + Math.random() * 12) * Math.PI / 180; df = 0.55 + Math.random() * 0.2; }
+    const a = aimAng + ang, d = aimDist * df;
+    strokes++;
+    prev = { x: ball.x, y: ball.y, lie };
+    frozen = m;
+    popup(q[0], q[1]);
+    flight = { sx: ball.x, sy: ball.y, ex: ball.x + Math.cos(a) * d, ey: ball.y + Math.sin(a) * d,
+      t: 0, dur: putt ? 0.6 + d / 350 : 0.8 + d / 450, putt, d, delay: 0.45 };
+    state = 'flying';
+  }
+
+  function updateFlight(dt) {
+    const f = flight;
+    if (f.delay > 0) { f.delay -= dt; return; }
+    f.t = Math.min(1, f.t + dt / f.dur);
+    const p = f.putt ? 1 - (1 - f.t) ** 2 : f.t;
+    ball.x = f.sx + (f.ex - f.sx) * p;
+    ball.y = f.sy + (f.ey - f.sy) * p;
+    ball.h = f.putt ? 0 : Math.sin(Math.PI * f.t) * f.d * 0.16;
+    if (f.putt && dist(ball.x, ball.y, hole.pin[0], hole.pin[1]) < CUP_R) return holed();
+    if (f.t >= 1) land();
+  }
+
+  function land() {
+    const f = flight; flight = null; frozen = null; ball.h = 0;
+    if (!f.putt && dist(ball.x, ball.y, hole.pin[0], hole.pin[1]) < CUP_R + 2) return holed();
+    const l = lieAt(ball.x, ball.y);
+    if (l === 'water' || l === 'oob') {
+      if (l === 'water') { popup('SPLASH! +1', '#6ec6ff'); splash(ball.x, ball.y); }
+      else popup('OUT OF BOUNDS +1', '#ff8a7a');
+      strokes++;
+      settle = 1.1; state = 'penalty';
+      return;
+    }
+    lie = l;
+    if (l === 'sand') popup('Bunker...', '#f2dfa5');
+    else if (l === 'green' && !f.putt) popup('On the green!', '#9cff8a');
+    afterShot(0.6);
+  }
+
+  function afterShot(delay) {
+    if (strokes >= hole.par + 4) { settle = delay; state = 'pickup'; return; }
+    settle = delay; state = 'settle';
+  }
+
+  function holed() {
+    flight = null; frozen = null; ball.x = hole.pin[0]; ball.y = hole.pin[1]; ball.h = 0;
+    state = 'holed'; holedT = 0;
+    const diff = strokes - hole.par;
+    if (strokes === 1) popup('HOLE IN ONE!!', '#ffd23f');
+    if (diff < 0 || strokes === 1) confetti();
+    scores.push(strokes);
+  }
+
+  function resultWord(s, par) {
+    if (s === 1) return 'Hole in One!';
+    const d = s - par;
+    return { '-3': 'Albatross!', '-2': 'Eagle!', '-1': 'Birdie!', '0': 'Par', '1': 'Bogey', '2': 'Double Bogey', '3': 'Triple Bogey' }[d] || (d > 0 ? `+${d}` : 'Wow!');
+  }
+  const parSoFar = () => HOLES.slice(0, scores.length).reduce((a, h) => a + h.par, 0);
+  const totalRel = () => scores.reduce((a, b) => a + b, 0) - parSoFar();
+
+  function showHoleDone(pickedUp) {
+    const s = scores[scores.length - 1];
+    $('hdHole').textContent = `Hole ${holeIdx + 1} · Par ${hole.par}`;
+    $('hdWord').textContent = pickedUp ? 'Picked Up' : resultWord(s, hole.par);
+    $('hdLine').textContent = `${s} stroke${s === 1 ? '' : 's'}`;
+    $('hdTotal').textContent = `Round: ${fmtRel(totalRel())}`;
+    $('nextBtn').textContent = holeIdx + 1 < HOLES.length ? 'Next Hole' : 'See Scorecard';
+    state = 'between'; show('holeDone');
+  }
+
+  function cardTable(from, to) {
+    let r1 = '<tr><td class="lbl">Hole</td>', r2 = '<tr><td class="lbl">Par</td>', r3 = '<tr><td class="lbl">You</td>', ps = 0, ss = 0;
+    for (let i = from; i < to; i++) {
+      const h = HOLES[i], s = scores[i], cls = s < h.par ? 'under' : s > h.par ? 'over' : '';
+      ps += h.par; ss += s;
+      r1 += `<td>${i + 1}</td>`; r2 += `<td>${h.par}</td>`; r3 += `<td class="${cls}">${s}</td>`;
+    }
+    r1 += '<td class="lbl">Tot</td>'; r2 += `<td class="lbl">${ps}</td>`; r3 += `<td class="lbl">${ss}</td>`;
+    return `<table>${r1}</tr>${r2}</tr>${r3}</tr></table>`;
+  }
+
+  function showEnd() {
+    const total = scores.reduce((a, b) => a + b, 0), rel = totalRel();
+    const list = rounds[mode], lastRound = list.length ? list[list.length - 1] : null;
+    const prevBest = bestFor(mode);
+    const me = { rel, strokes: total, date: Date.now() };
+    list.push(me); if (list.length > 50) list.shift();
+    saveRounds();
+
+    $('endTitle').textContent = `${mode}-Hole Round Complete`;
+    $('endRel').textContent = fmtRel(rel);
+    $('endStrokes').textContent = `${total} strokes · Par ${HOLES.reduce((a, h) => a + h.par, 0)}`;
+    $('card').innerHTML = mode === 18 ? cardTable(0, 9) + cardTable(9, 18) : cardTable(0, 9);
+
+    let vs = 'First round on the books — now beat it!';
+    if (lastRound) {
+      const d = lastRound.rel - rel;
+      vs = d > 0 ? `Beat your last round by ${d}!` : d === 0 ? 'Tied your last round' : `${-d} worse than your last round (${fmtRel(lastRound.rel)})`;
+    }
+    $('endVs').textContent = vs;
+    $('endVs').className = lastRound && lastRound.rel > rel ? 'vs good' : 'vs';
+    $('endBest').textContent = (prevBest === null || rel < prevBest) && lastRound ? 'NEW PERSONAL BEST!' : '';
+
+    const top = ranked(mode).slice(0, 5);
+    $('lbTitle').textContent = `Your Top 5 · ${mode} Holes`;
+    $('lb').innerHTML = top.map((r, i) => {
+      const d = new Date(r.date);
+      return `<li class="${r === me ? 'me' : ''}"><span>#${i + 1}</span><b>${fmtRel(r.rel)}</b><span>${r.strokes} strokes</span><span>${d.getMonth() + 1}/${d.getDate()}</span></li>`;
+    }).join('');
+    $('againBtn').textContent = `Play ${mode} Again`;
+    state = 'end'; show('end');
+  }
+
+  // ---------- effects ----------
+  function popup(text, color) { popups.push({ text, color, t: 0 }); if (popups.length > 3) popups.shift(); }
+  function confetti() {
+    const cols = ['#ffd23f', '#e74c3c', '#ffffff', '#7CFC8A', '#6ec6ff'];
+    for (let i = 0; i < 90; i++) parts.push({ x: W / 2, y: L.courseTop + L.courseH * 0.4,
+      vx: (Math.random() - 0.5) * 520, vy: -Math.random() * 520 - 80, c: cols[i % cols.length], life: 1.6 + Math.random(), screen: true, rot: Math.random() * 6 });
+  }
+  function splash(x, y) {
+    for (let i = 0; i < 24; i++) { const a = Math.random() * Math.PI * 2, v = 30 + Math.random() * 60;
+      parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, c: '#bfe8ff', life: 0.7, screen: false, rot: 0 }); }
+  }
+
+  // ---------- update ----------
+  function update(dt) {
+    time += dt;
+    if (state === 'aim') meterT += dt;
+    if (state === 'flying') updateFlight(dt);
+    if (state === 'settle' || state === 'penalty' || state === 'pickup') {
+      settle -= dt;
+      if (settle <= 0) {
+        if (state === 'penalty') { ball.x = prev.x; ball.y = prev.y; lie = prev.lie; afterShot(0.2); }
+        else if (state === 'pickup') { scores.push(hole.par + 4); showHoleDone(true); }
+        else { defaultAim(); state = 'aim'; }
+      }
+    }
+    if (state === 'holed') { holedT += dt; if (holedT > 1.2) showHoleDone(false); }
+    camY += (camGoal() - camY) * Math.min(1, dt * 4);
+    popups.forEach(p => p.t += dt); popups = popups.filter(p => p.t < 1.4);
+    parts.forEach(p => { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.screen) p.vy += 700 * dt; else { p.vx *= 0.92; p.vy *= 0.92; } p.rot += dt * 8; });
+    parts = parts.filter(p => p.life > 0);
+  }
+
+  // ---------- drawing ----------
+  function tree(x, y, r) {
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(x + 3, y + 4, r, 0, 7); ctx.fill();
+    ctx.fillStyle = '#22602a'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2f7a35'; ctx.beginPath(); ctx.arc(x - r * 0.25, y - r * 0.25, r * 0.6, 0, 7); ctx.fill();
+  }
+
+  function drawCourse() {
+    const s = L.s;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, L.courseTop, W, L.courseH); ctx.clip();
+    ctx.fillStyle = '#1c4a24'; ctx.fillRect(0, L.courseTop, W, L.courseH);
+    ctx.translate(L.ox, L.cy - camY * s); ctx.scale(s, s);
+
+    // rough with mowing stripes
+    for (let y = 0; y < hole.h; y += 40) { ctx.fillStyle = (y / 40) % 2 ? '#3f8b39' : '#45953e'; ctx.fillRect(0, y, WORLD_W, Math.min(40, hole.h - y)); }
+    // fairway
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const [col, extra] of [['#4fa846', 10], ['#62bf55', 0]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = hole.fw.w + extra;
+      for (const ln of hole.fw.lines) { ctx.beginPath(); ln.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); }
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = hole.fw.w * 0.45;
+    for (const ln of hole.fw.lines) { ctx.beginPath(); ln.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); }
+    // tee box
+    const [tx, ty] = hole.tee;
+    ctx.fillStyle = '#74d064'; ctx.fillRect(tx - 26, ty - 14, 52, 28);
+    ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(tx - 18, ty - 6, 3, 0, 7); ctx.arc(tx + 18, ty - 6, 3, 0, 7); ctx.fill();
+    // water
+    for (const w of hole.water) {
+      ctx.fillStyle = '#2f7fc4'; ctx.beginPath(); ctx.ellipse(w[0], w[1], w[2] + 4, w[3] + 4, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3a98e0'; ctx.beginPath(); ctx.ellipse(w[0], w[1], w[2], w[3], 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2;
+      for (let k = 0; k < 3; k++) {
+        const ox = Math.sin(time * 1.2 + k * 2) * w[2] * 0.25, oy = (k - 1) * w[3] * 0.4;
+        ctx.beginPath(); ctx.arc(w[0] + ox, w[1] + oy, 7, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+      }
+    }
+    // sand
+    for (const b of hole.sand) {
+      ctx.fillStyle = '#cdb578'; ctx.beginPath(); ctx.arc(b[0], b[1], b[2] + 3, 0, 7); ctx.fill();
+      ctx.fillStyle = '#ecd99c'; ctx.beginPath(); ctx.arc(b[0], b[1], b[2], 0, 7); ctx.fill();
+    }
+    // green
+    const g = hole.green;
+    ctx.fillStyle = '#5cbf50'; ctx.beginPath(); ctx.arc(g[0], g[1], g[2] + 7, 0, 7); ctx.fill();
+    ctx.fillStyle = '#7fe06c'; ctx.beginPath(); ctx.arc(g[0], g[1], g[2], 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(g[0], g[1], g[2] * 0.65, 0, 7); ctx.stroke();
+    // tree lines out of bounds
+    const extra = Math.ceil(L.ox / s) + 20;
+    for (let y = -30, i = 0; y < hole.h + 40; y += 30, i++) {
+      for (let x = -12 - (i % 2) * 14; x > -extra; x -= 34) tree(x, y, 17);
+      for (let x = WORLD_W + 12 + (i % 2) * 14; x < WORLD_W + extra; x += 34) tree(x, y, 17);
+    }
+    // world-space particles (splashes)
+    for (const p of parts) if (!p.screen) { ctx.globalAlpha = Math.max(0, p.life / 0.7); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // ----- screen-space pieces -----
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, L.courseTop, W, L.courseH); ctx.clip();
+    const cx = sx(hole.pin[0]), cy = sy(hole.pin[1]), cr = Math.max(CUP_R * s * 0.75, 4.5);
+    ctx.fillStyle = '#123'; ctx.beginPath(); ctx.arc(cx, cy, cr, 0, 7); ctx.fill();
+
+    // aim line + landing ring
+    if (state === 'aim') {
+      const lx = sx(ball.x + Math.cos(aimAng) * aimDist), ly = sy(ball.y + Math.sin(aimAng) * aimDist);
+      ctx.setLineDash([6, 7]); ctx.lineDashOffset = -time * 30;
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(sx(ball.x), sy(ball.y)); ctx.lineTo(lx, ly); ctx.stroke();
+      ctx.setLineDash([]);
+      const rr = Math.max(7, aimDist * 0.06 * s);
+      ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(lx, ly, rr, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx - 4, ly); ctx.lineTo(lx + 4, ly); ctx.moveTo(lx, ly - 4); ctx.lineTo(lx, ly + 4); ctx.stroke();
+    }
+
+    // ball (drawn before flag so the flag sits on top when holed)
+    let br = 5;
+    if (state === 'holed') br = Math.max(0, 5 * (1 - holedT * 3));
+    if (br > 0) {
+      const bx = sx(ball.x), by = sy(ball.y);
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(bx + 1.5, by + 2, br, br * 0.7, 0, 0, 7); ctx.fill();
+      const hh = ball.h * s, rb = br + ball.h * 0.03 * s;
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#9aa'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(bx, by - hh, rb, 0, 7); ctx.fill(); ctx.stroke();
+    }
+
+    // flag
+    ctx.strokeStyle = '#eee'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 36); ctx.stroke();
+    const wave = Math.sin(time * 5) * 3;
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath(); ctx.moveTo(cx, cy - 36); ctx.quadraticCurveTo(cx + 12, cy - 32 + wave, cx + 22, cy - 29 + wave * 0.5);
+    ctx.quadraticCurveTo(cx + 12, cy - 25 - wave, cx, cy - 22); ctx.fill();
+    ctx.restore();
+  }
+
+  function txt(t, x, y, font, color, align = 'center') {
+    ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y);
+  }
+
+  function drawHUD() {
+    ctx.fillStyle = '#0f2e18'; ctx.fillRect(0, 0, W, L.hud);
+    txt(`Hole ${holeIdx + 1}/${HOLES.length}`, 12, 18, '800 16px system-ui', '#fff', 'left');
+    txt(`Par ${hole.par} · ${hole.name}`, 12, 37, '600 12px system-ui', '#9ccaa5', 'left');
+    txt('STROKE', W / 2, 15, '700 10px system-ui', '#9ccaa5');
+    txt(String(strokes), W / 2, 34, '800 20px system-ui', '#fff');
+    txt(`Round ${fmtRel(totalRel())}`, W - 12, 18, '800 16px system-ui', '#ffd23f', 'right');
+    const b = bestFor(mode);
+    txt(b === null ? `Best (${mode}) —` : `Best (${mode}) ${fmtRel(b)}`, W - 12, 37, '600 12px system-ui', '#9ccaa5', 'right');
+  }
+
+  function drawPanel() {
+    const { mx, my, R } = L;
+    ctx.fillStyle = '#0f2e18'; ctx.fillRect(0, L.panelY, W, L.panelH);
+    ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(0, L.panelY, W, 2);
+    const hint = state === 'aim' ? (lie === 'green' ? 'Putt — tap the target / SPACE' : 'Tap the target / SPACE to swing') : ' ';
+    txt(hint, mx, L.panelY + 17, '700 13px system-ui', state === 'aim' ? '#ffd23f' : '#9ccaa5');
+
+    // bullseye
+    const rings = [[1, '#e74c3c'], [0.85, '#ffffff'], [0.6, '#e74c3c'], [0.35, '#ffffff'], [0.15, '#ffd23f']];
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(mx, my + 5, R, 0, 7); ctx.fill();
+    for (const [f, c] of rings) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(mx, my, R * f, 0, 7); ctx.fill(); }
+    // moving dot
+    const m = frozen || (state === 'aim' ? meterPos() : null);
+    if (m) {
+      if (!frozen) {
+        for (let k = 1; k <= 4; k++) {
+          const sp = (1 + holeIdx * 0.07) * (lie === 'green' ? 0.85 : 1), tt = meterT - k * 0.025;
+          const a = Math.sin(tt * 3.1 * sp), th = tt * 0.55;
+          ctx.fillStyle = `rgba(20,40,70,${0.25 - k * 0.05})`;
+          ctx.beginPath(); ctx.arc(mx + a * Math.cos(th) * R, my + a * Math.sin(th) * R, 9, 0, 7); ctx.fill();
+        }
+      }
+      const dx = mx + m.x * R, dy = my + m.y * R;
+      ctx.fillStyle = '#14284a'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(dx, dy, 9, 0, 7); ctx.fill(); ctx.stroke();
+    }
+
+    // side info
+    const pd = dist(ball.x, ball.y, hole.pin[0], hole.pin[1]);
+    const onGreen = lie === 'green';
+    const unit = onGreen ? 'ft' : 'yds', conv = onGreen ? YD * 3 : YD;
+    const lx = (mx - R) / 2, rx = mx + R + (W - mx - R) / 2;
+    txt('LIE', lx, my - 30, '700 10px system-ui', '#9ccaa5');
+    txt(LIE_NAME[lie] || '', lx, my - 13, '800 17px system-ui', '#fff');
+    txt('TO PIN', lx, my + 14, '700 10px system-ui', '#9ccaa5');
+    txt(`${Math.round(pd * conv)} ${unit}`, lx, my + 31, '800 17px system-ui', '#fff');
+    txt('SHOT', rx, my - 30, '700 10px system-ui', '#9ccaa5');
+    txt(`${Math.round(aimDist * conv)} ${unit}`, rx, my - 13, '800 17px system-ui', '#ffd23f');
+    txt('MAX', rx, my + 14, '700 10px system-ui', '#9ccaa5');
+    txt(onGreen ? '—' : `${Math.round(MAX[lie] * YD)} yds`, rx, my + 31, '800 17px system-ui', '#fff');
+  }
+
+  function drawFx() {
+    popups.forEach((p, i) => {
+      const a = p.t < 1 ? 1 : 1 - (p.t - 1) / 0.4, sc = p.t < 0.15 ? 0.6 + p.t / 0.15 * 0.4 : 1;
+      ctx.save(); ctx.globalAlpha = Math.max(0, a);
+      ctx.translate(W / 2, L.courseTop + 44 + i * 40 - p.t * 14); ctx.scale(sc, sc);
+      ctx.font = '900 30px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.strokeText(p.text, 0, 0);
+      ctx.fillStyle = p.color; ctx.fillText(p.text, 0, 0);
+      ctx.restore();
+    });
+    for (const p of parts) if (p.screen) {
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.c; ctx.fillRect(-4, -2.5, 8, 5); ctx.restore();
+    }
+  }
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    update(dt);
+    drawCourse(); drawHUD(); drawPanel(); drawFx();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- input ----------
+  let dragging = false;
+  function aimAt(px, py) {
+    const wx = (px - L.ox) / L.s, wy = (py - L.cy) / L.s + camY;
+    const d = dist(ball.x, ball.y, wx, wy);
+    if (d < 4) return;
+    aimAng = Math.atan2(wy - ball.y, wx - ball.x);
+    aimDist = clamp(d, 10, MAX[lie]);
+  }
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (state !== 'aim') return;
+    if (e.clientY >= L.panelY) { swing(); return; }
+    if (e.clientY > L.courseTop) { dragging = true; aimAt(e.clientX, e.clientY); }
+  });
+  cv.addEventListener('pointermove', e => {
+    if (dragging && state === 'aim' && e.clientY > L.courseTop && e.clientY < L.panelY) aimAt(e.clientX, e.clientY);
+  });
+  addEventListener('pointerup', () => dragging = false);
+  addEventListener('pointercancel', () => dragging = false);
+  // block page scrolling, except inside the menus (the 18-hole scorecard can be tall)
+  document.addEventListener('touchmove', e => { if (!e.target.closest('.overlay')) e.preventDefault(); }, { passive: false });
+
+  addEventListener('keydown', e => {
+    if ([' ', 'Spacebar', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
+    if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
+      if (e.repeat) return;
+      if (state === 'start') return startRound(mode);
+      if (state === 'between') return nextHole();
+      if (state === 'end') return startRound(mode);
+      return swing();
+    }
+    if (state !== 'aim') return;
+    if (e.key === 'ArrowLeft') aimAng -= 0.035;
+    if (e.key === 'ArrowRight') aimAng += 0.035;
+    if (e.key === 'ArrowUp') aimDist = clamp(aimDist + 8, 10, MAX[lie]);
+    if (e.key === 'ArrowDown') aimDist = clamp(aimDist - 8, 10, MAX[lie]);
+  });
+
+  $('play9').onclick = () => startRound(9);
+  $('play18').onclick = () => startRound(18);
+  $('nextBtn').onclick = nextHole;
+  $('againBtn').onclick = () => startRound(mode);
+  $('menuBtn').onclick = toMenu;
+  updateStartBest();
+
+  addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
